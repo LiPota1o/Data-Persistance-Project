@@ -3,29 +3,51 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.IO;
 
 public class MainManager : MonoBehaviour
 {
+    [System.Serializable]
+    public class HighScoreData
+    {
+        public string playerName;
+        public int highScore;
+
+        public HighScoreData(string playerName, int highScore)
+        {
+            this.playerName = playerName;
+            this.highScore = highScore;
+        }
+    }
+
     public Brick BrickPrefab;
     public int LineCount = 6;
     public Rigidbody Ball;
 
-    public Text ScoreText;
+    public Text ScoreText;  // Стандартный Text для отображения счета
     public GameObject GameOverText;
-    
+    public Text HighScoreText;  // Стандартный Text для отображения рекорда
+
     private bool m_Started = false;
     private int m_Points;
-    
     private bool m_GameOver = false;
 
-    
+    private string playerName;
+    private int highScore;
+
+    private string filePath;
+
     // Start is called before the first frame update
     void Start()
     {
+        filePath = Application.persistentDataPath + "/highscore.json";
+        LoadHighScore();
+        HighScoreText.text = $"High Score: {playerName}: {highScore}";
+
         const float step = 0.6f;
         int perLine = Mathf.FloorToInt(4.0f / step);
-        
-        int[] pointCountArray = new [] {1,1,2,2,5,5};
+
+        int[] pointCountArray = new[] { 1, 1, 2, 2, 5, 5 };
         for (int i = 0; i < LineCount; ++i)
         {
             for (int x = 0; x < perLine; ++x)
@@ -57,7 +79,7 @@ public class MainManager : MonoBehaviour
         {
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                SceneManager.LoadScene("Menu");
             }
         }
     }
@@ -72,5 +94,41 @@ public class MainManager : MonoBehaviour
     {
         m_GameOver = true;
         GameOverText.SetActive(true);
+
+        // Сохраняем рекорд, если новый счёт выше текущего рекорда
+        if (m_Points > highScore)
+        {
+            highScore = m_Points;
+
+            // Получаем имя игрока из PlayerPrefs
+            playerName = PlayerPrefs.GetString("PlayerName", "No name");
+
+            // Сохраняем новое имя и рекорд в файл, только если рекорд был побит
+            HighScoreData highScoreData = new HighScoreData(playerName, highScore);
+            string json = JsonUtility.ToJson(highScoreData);
+            File.WriteAllText(filePath, json);
+
+            // Обновляем отображение рекорда
+            HighScoreText.text = $"High Score: {playerName}: {highScore}";
+        }
+    }
+
+    void LoadHighScore()
+    {
+        // Загружаем имя игрока из PlayerPrefs
+        playerName = PlayerPrefs.GetString("PlayerName", "No name");
+
+        // Загружаем рекорд из файла, если он существует
+        if (File.Exists(filePath))
+        {
+            string json = File.ReadAllText(filePath);
+            HighScoreData highScoreData = JsonUtility.FromJson<HighScoreData>(json);
+            highScore = highScoreData.highScore;
+            playerName = highScoreData.playerName;
+        }
+        else
+        {
+            highScore = 0;  // Если файл рекордов не найден, устанавливаем 0
+        }
     }
 }
